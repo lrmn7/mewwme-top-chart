@@ -9,7 +9,7 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repo
@@ -26,55 +26,21 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
-
-      - name: Build Next.js
-        run: npm run build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
-          SPOTIFY_CLIENT_ID_2: ${{ secrets.SPOTIFY_CLIENT_ID_2 }}
-          SPOTIFY_CLIENT_SECRET_2: ${{ secrets.SPOTIFY_CLIENT_SECRET_2 }}
-          SPOTIFY_CLIENT_ID_3: ${{ secrets.SPOTIFY_CLIENT_ID_3 }}
-          SPOTIFY_CLIENT_SECRET_3: ${{ secrets.SPOTIFY_CLIENT_SECRET_3 }}
-          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
-          SCRAPE_COUNTRIES: ${{ secrets.SCRAPE_COUNTRIES }}
-          TOP_ARTISTS_LIMIT: ${{ secrets.TOP_ARTISTS_LIMIT }}
-          TOP_TRACKS_LIMIT: ${{ secrets.TOP_TRACKS_LIMIT }}
-
-      - name: Start Next.js Server
-        run: |
-          npm start &
-          echo "Waiting for server to start..."
-          for i in $(seq 1 30); do
-            if curl -s http://localhost:3000 > /dev/null 2>&1; then
-              echo "Server is ready!"
-              break
-            fi
-            sleep 2
-          done
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
-          SPOTIFY_CLIENT_ID_2: ${{ secrets.SPOTIFY_CLIENT_ID_2 }}
-          SPOTIFY_CLIENT_SECRET_2: ${{ secrets.SPOTIFY_CLIENT_SECRET_2 }}
-          SPOTIFY_CLIENT_ID_3: ${{ secrets.SPOTIFY_CLIENT_ID_3 }}
-          SPOTIFY_CLIENT_SECRET_3: ${{ secrets.SPOTIFY_CLIENT_SECRET_3 }}
-          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
-          SCRAPE_COUNTRIES: ${{ secrets.SCRAPE_COUNTRIES }}
-          TOP_ARTISTS_LIMIT: ${{ secrets.TOP_ARTISTS_LIMIT }}
-          TOP_TRACKS_LIMIT: ${{ secrets.TOP_TRACKS_LIMIT }}
 
       - name: Run Data Refresh
-        run: |
-          echo "🔄 Starting data refresh..."
-          curl --fail-with-body --max-time 3600 \
-            -X POST "http://localhost:3000/api/cron/refresh" \
-            -H "Content-Type: application/json" \
-            -d '{"secret":"${{ secrets.ADMIN_SECRET }}"}'
-          echo ""
-          echo "✅ Data refresh completed!"
+        run: node refresh-data.js
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          SPOTIFY_CLIENT_ID_2: ${{ secrets.SPOTIFY_CLIENT_ID_2 }}
+          SPOTIFY_CLIENT_SECRET_2: ${{ secrets.SPOTIFY_CLIENT_SECRET_2 }}
+          SPOTIFY_CLIENT_ID_3: ${{ secrets.SPOTIFY_CLIENT_ID_3 }}
+          SPOTIFY_CLIENT_SECRET_3: ${{ secrets.SPOTIFY_CLIENT_SECRET_3 }}
+          SCRAPE_COUNTRIES: ${{ secrets.SCRAPE_COUNTRIES }}
+          TOP_TRACKS_LIMIT: ${{ secrets.TOP_TRACKS_LIMIT }}
 
       - name: Log cron execution
         if: always()

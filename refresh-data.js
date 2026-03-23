@@ -1,81 +1,36 @@
-const { PrismaClient } = require('@prisma/client');
-const { fetchKworbData } = require('./src/lib/scraping/kworbScraper');
-const { fetchKworbIndonesiaData } = require('./src/lib/scraping/kworbIndonesia');
-const { fetchKworbTracksData } = require('./src/lib/scraping/kworbTracks');
+/**
+ * Standalone refresh script for GitHub Actions.
+ * Runs the same scraping logic as /api/cron/refresh but without needing to build/start Next.js.
+ * 
+ * Usage: node refresh-data.js
+ * 
+ * Required env vars:
+ * - DATABASE_URL (MySQL/PostgreSQL/SQLite connection string)
+ * - SPOTIFY_CLIENT_ID
+ * - SPOTIFY_CLIENT_SECRET
+ * - SCRAPE_COUNTRIES (optional, defaults to "global,id")
+ * - TOP_TRACKS_LIMIT (optional, defaults to 25)
+ */
 
-const prisma = new PrismaClient();
+const { execSync } = require('child_process');
 
-async function refreshAllData() {
-  console.log('Starting data refresh...');
+// Use tsx to run TypeScript directly
+try {
+  console.log('🔄 Starting data refresh via standalone script...');
+  console.log(`📅 ${new Date().toISOString()}`);
+  console.log(`🌍 Countries: ${process.env.SCRAPE_COUNTRIES || 'global,id'}`);
+  console.log(`📊 Track limit: ${process.env.TOP_TRACKS_LIMIT || '25'}`);
+  console.log('');
   
-  try {
-    // Clear existing data
-    console.log('Clearing existing data...');
-    await prisma.artistCurrent.deleteMany({});
-    await prisma.trackCurrent.deleteMany({});
-    await prisma.artistSnapshot.deleteMany({});
-    await prisma.trackSnapshot.deleteMany({});
-    
-    // Fetch and store Global Top Artists
-    console.log('Fetching Global Top Artists...');
-    const globalArtists = await fetchKworbData();
-    for (const artist of globalArtists) {
-      await prisma.artistCurrent.create({
-        data: {
-          artistName: artist.name,
-          country: 'global',
-          rank: artist.rank,
-          monthlyListeners: artist.monthlyListeners,
-          listenersDelta: artist.listenersDelta || 0,
-          imageUrl: artist.imageUrl,
-          lastUpdated: new Date()
-        }
-      });
-    }
-    
-    // Fetch and store Indonesia Top Artists
-    console.log('Fetching Indonesia Top Artists...');
-    const indonesiaArtists = await fetchKworbIndonesiaData();
-    for (const artist of indonesiaArtists) {
-      await prisma.artistCurrent.create({
-        data: {
-          artistName: artist.name,
-          country: 'id',
-          rank: artist.rank,
-          monthlyListeners: artist.monthlyListeners,
-          listenersDelta: artist.listenersDelta || 0,
-          imageUrl: artist.imageUrl,
-          lastUpdated: new Date()
-        }
-      });
-    }
-    
-    // Fetch and store Global Top Tracks
-    console.log('Fetching Global Top Tracks...');
-    const globalTracks = await fetchKworbTracksData();
-    for (const track of globalTracks) {
-      await prisma.trackCurrent.create({
-        data: {
-          trackName: track.name,
-          artistName: track.artist,
-          country: 'global',
-          rank: track.rank,
-          dailyStreams: BigInt(track.dailyStreams),
-          totalStreams: track.totalStreams ? BigInt(track.totalStreams) : null,
-          imageUrl: track.imageUrl,
-          lastUpdated: new Date()
-        }
-      });
-    }
-    
-    console.log('Data refresh completed successfully!');
-    
-  } catch (error) {
-    console.error('Error during data refresh:', error);
-  } finally {
-    await prisma.$disconnect();
-  }
+  execSync('npx tsx refresh-worker.ts', {
+    stdio: 'inherit',
+    env: process.env,
+  });
+  
+  console.log('');
+  console.log('✅ Data refresh completed successfully!');
+  process.exit(0);
+} catch (error) {
+  console.error('❌ Data refresh failed:', error.message);
+  process.exit(1);
 }
-
-// Run the refresh
-refreshAllData();
